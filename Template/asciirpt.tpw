@@ -1,0 +1,593 @@
+#!--------------------------------------------------------------------------
+#GROUP(%FileControlSetFlags)
+#IF(%Primary)
+  #ADD(%UsedFile,%Primary)
+  #INSERT(%AddRelatedFiles,%UsedFile,%Primary)
+  #FOR(%Secondary)
+    #ADD(%UsedFile,%Secondary)
+    #INSERT(%AddRelatedFiles,%UsedFile,%Secondary)
+  #ENDFOR
+#ENDIF
+#FOR(%OtherFiles)
+  #ADD(%UsedFile,%OtherFiles)
+  #INSERT(%AddRelatedFiles,%UsedFile,%OtherFiles)
+#ENDFOR
+#!--------------------------------------------------------------------------
+#GROUP(%FileControlInitialize)
+#MESSAGE('Initializing File Control',3)
+#IF(%Primary)
+  #ADD(%ProcFilesUsed,%Primary)
+#ENDIF
+#FOR(%Secondary)
+  #ADD(%ProcFilesUsed,%Secondary)
+#ENDFOR
+#FOR(%OtherFiles)
+  #ADD(%ProcFilesUsed,%OtherFiles)
+#ENDFOR
+#!-------------------------------------------------------------------------
+#GROUP(%StandardViewFilter,%UserFilter,%LimitKey,%LimitField,%LimitType,%LimitPrefix,%LimitValue1,%LimitValue2,%FilterMode)
+#! UserFilter  - User's Filter Statement
+#! LimitKey    - Key that the thing is based on
+#! LimitField  - Field that is limited
+#! LimitType   - What type of limit takes place?
+#! LimitPrefix - Prefix of limiting variables
+#! LimitValue1 - Single, Current, Low, or File Relationship)
+#! LimitValue2 - High
+#! FilterMode  - Construct, Declare, Assign, Save
+#DECLARE(%LimitFound)
+#DECLARE(%FieldIsString)
+#SET(%ValueConstruct,%Null)
+#IF(%LimitField)
+  #FIND(%Key,%LimitKey)
+  #IF(%LimitType = 'File Relationship')
+    #CASE(%FilterMode)
+    #OF('Construct')
+      #FIX(%Relation,%LimitValue1)
+      #FOR(%FileKeyField),WHERE(%FileKeyField)
+        #IF(%ValueConstruct)
+          #SET(%ValueConstruct,%ValueConstruct & ' AND ')
+        #ENDIF
+        #FIX(%Field,%FileKeyField)
+        #SET(%FieldIsString,%True)
+        #CASE(%FieldType)
+        #OF('STRING')
+        #OROF('CSTRING')
+        #OROF('PSTRING')
+        #OROF('GROUP')
+        #ELSE
+          #SET(%FieldIsString,%False)
+        #ENDCASE
+        #IF(%KeyNoCase AND %FieldIsString)
+          #SET(%ValueConstruct,%ValueConstruct & 'UPPER(' & %FileKeyField & ') = UPPER(' & %FileKeyFieldLink & ')')
+        #ELSE
+          #SET(%ValueConstruct,%ValueConstruct & %FileKeyField & ' = ' & %FileKeyFieldLink)
+        #ENDIF
+      #ENDFOR
+    #ENDCASE
+  #ELSE
+    #FOR(%KeyField)
+      #FIX(%Field,%KeyField)
+      #SET(%FieldIsString,%True)
+      #CASE(%FieldType)
+      #OF('STRING')
+      #OROF('CSTRING')
+      #OROF('PSTRING')
+      #OROF('GROUP')
+      #ELSE
+        #SET(%FieldIsString,%False)
+      #ENDCASE
+      #IF(%ValueConstruct)
+        #SET(%ValueConstruct,%ValueConstruct & ' AND ')
+      #ENDIF
+      #IF(%KeyField = %LimitField)
+        #CASE(%LimitType)
+        #OF('Single Value')
+          #CASE(%FilterMode)
+          #OF('Construct')
+            #IF(%KeyNoCase AND %FieldIsString)
+              #SET(%ValueConstruct,%ValueConstruct & 'UPPER(' & %KeyField & ') = UPPER(' & %LimitValue1 & ')')
+            #ELSE
+              #SET(%ValueConstruct,%ValueConstruct & %KeyField & ' = ' & %LimitValue1)
+            #ENDIF
+          #OF('Bind')
+BIND('%LimitValue1',%LimitValue1)
+          #ENDCASE
+        #OF('Current Value')
+          #CASE(%FilterMode)
+          #OF('Construct')
+            #IF(%KeyNoCase AND %FieldIsString)
+              #SET(%ValueConstruct,%ValueConstruct & 'UPPER(' & %KeyField & ') = UPPER(' & %LimitPrefix & ':' & %KeyField & ')')
+            #ELSE
+              #SET(%ValueConstruct,%ValueConstruct & %KeyField & ' = ' & %LimitPrefix & ':' & %KeyField)
+            #ENDIF
+          #OF('Declare')
+%LimitPrefix:%KeyField LIKE(%KeyField)
+          #OF('Save')
+%LimitPrefix:%KeyField = %KeyField
+          #OF('Bind')
+BIND('%LimitPrefix:%KeyField',%LimitPrefix:%KeyField)
+          #ENDCASE
+        #OF('Range of Values')
+          #IF(%LimitValue1)
+            #CASE(%FilterMode)
+            #OF('Construct')
+              #IF(%KeyNoCase AND %FieldIsString)
+                #SET(%ValueConstruct,%ValueConstruct & 'UPPER(' & %KeyField & ') >= UPPER(' & %LimitValue1 & ')')
+              #ELSE
+                #SET(%ValueConstruct,%ValueConstruct & %KeyField & ' >= ' & %LimitValue1)
+              #ENDIF
+            #OF('Bind')
+BIND('%LimitValue1',%LimitValue1)
+            #ENDCASE
+          #ENDIF
+          #IF(%ValueConstruct)
+            #SET(%ValueConstruct,%ValueConstruct & ' AND ')
+          #ENDIF
+          #IF(%LimitValue2)
+            #CASE(%FilterMode)
+            #OF('Construct')
+              #IF(%KeyNoCase AND %FieldIsString)
+                #SET(%ValueConstruct,%ValueConstruct & 'UPPER(' & %KeyField & ') <<= UPPER(' & %LimitValue2 & ')')
+              #ELSE
+                #SET(%ValueConstruct,%ValueConstruct & %KeyField & ' <<= ' & %LimitValue2)
+              #ENDIF
+            #OF('Bind')
+BIND('%LimitValue2',%LimitValue2)
+            #ENDCASE
+          #ENDIF
+        #ENDCASE
+        #BREAK
+      #ELSE
+        #CASE(%FilterMode)
+        #OF('Construct')
+          #IF(%KeyNoCase AND %FieldIsString)
+            #SET(%ValueConstruct,%ValueConstruct & 'UPPER(' & %KeyField & ') = UPPER(' & %LimitPrefix & ':' & %KeyField & ')')
+          #ELSE
+            #SET(%ValueConstruct,%ValueConstruct & %KeyField & ' = ' & %LimitPrefix & ':' & %KeyField)
+          #ENDIF
+        #OF('Declare')
+%LimitPrefix:%KeyField LIKE(%KeyField)
+        #OF('Save')
+%LimitPrefix:%KeyField = %KeyField
+        #OF('Bind')
+BIND('%LimitPrefix:%KeyField',%LimitPrefix:%KeyField)
+        #ENDCASE
+      #ENDIF
+    #ENDFOR
+  #ENDIF
+#ENDIF
+#IF(%UserFilter)
+  #IF(%ValueConstruct)
+    #SET(%ValueConstruct,%ValueConstruct & ' AND (' & %UserFilter & ')')
+  #ELSE
+    #SET(%ValueConstruct,%UserFilter)
+  #ENDIF
+#ENDIF
+#!-------------------------------------------------------------------------
+#GROUP(%ConstructView)
+#DECLARE(%PreviouslyJoinedField),MULTI
+#EMBED(%BeforeViewDeclaration,'Internal use, 2.003 only'),HIDE
+#FIX(%File,%Primary)
+%[20]ListView VIEW(%Primary)
+#EMBED(%AtStartOfViewDeclaration,'Internal use, 2.003 only'),HIDE
+#FOR(%QueueField)
+  #FIX(%Field,%QueueFieldAssignment)
+  #IF(%Field)
+    #FIX(%PreviouslyJoinedField,%Field)
+    #IF(NOT(%PreviouslyJoinedField))
+      #ADD(%PreviouslyJoinedField,%Field)
+%[22]Null PROJECT(%Field)
+    #ENDIF
+  #ENDIF
+#ENDFOR
+#FOR(%Secondary),WHERE(%SecondaryTo=%Primary)
+  #INSERT(%ConstructViewProjectSecondary,%Primary,%Secondary)
+#ENDFOR
+#FOR(%Secondary),WHERE(%SecondaryTo=%Primary)
+  #INSERT(%ConstructViewJoinSecondary,%Primary,%Secondary)
+#ENDFOR
+#EMBED(%AtEndOfViewDeclaration,'Internal use, 2.003 only'),HIDE
+%[20]Null END
+#!-------------------------------------------------------------------------
+#GROUP(%ConstructViewJoinSecondary,%CurrentPrimary,%CurrentSecondary)
+#DECLARE(%JoinDeclaration)
+#SET(%JoinDeclaration,'JOIN(')
+#FIX(%File,%CurrentSecondary)
+#FIX(%Relation,%CurrentPrimary)
+#SET(%JoinDeclaration,%JoinDeclaration & %FileKey)
+#FOR(%RelationKeyField),WHERE(%RelationKeyFieldLink AND %RelationKeyField)
+  #SET(%JoinDeclaration,%JoinDeclaration & ',' & %RelationKeyField)
+  #IF(%FileRelationType = '1:MANY')
+    #IF(%InstancePrefix)
+      #SET(%ValueConstruct,%InstancePrefix & ':' & %RelationKeyFieldLink)
+      #FIX(%QueueField,%ValueConstruct)
+      #IF(%QueueField <> %ValueConstruct)
+        #ADD(%QueueField,%ValueConstruct)
+        #SET(%QueueFieldAssignment,%RelationKeyFieldLink)
+      #ENDIF
+    #ENDIF
+  #ENDIF
+#ENDFOR
+#SET(%JoinDeclaration,%JoinDeclaration & ')')
+%[20]Null %JoinDeclaration
+#FOR(%QueueField)
+  #EMBED(%InViewDeclaration,'Internal use, 2.003 only'),HIDE
+  #FIX(%Field,%QueueFieldAssignment)
+  #IF(%Field)
+    #FIX(%PreviouslyJoinedField,%Field)
+    #IF(NOT(%PreviouslyJoinedField))
+      #ADD(%PreviouslyJoinedField,%Field)
+%[22]Null PROJECT(%Field)
+    #ENDIF
+  #ENDIF
+#ENDFOR
+#FOR(%Secondary),WHERE(%SecondaryTo=%CurrentSecondary)
+  #INSERT(%ConstructViewProjectSecondary,%CurrentSecondary,%Secondary)
+#ENDFOR
+#FOR(%Secondary),WHERE(%SecondaryTo=%CurrentSecondary)
+  #INSERT(%ConstructViewJoinSecondary,%CurrentSecondary,%Secondary)
+#ENDFOR
+%[20]Null END
+#!-------------------------------------------------------------------------
+#GROUP(%ConstructViewProjectSecondary,%CurrentPrimary,%CurrentSecondary)
+#FIX(%File,%CurrentSecondary)
+#FIX(%Relation,%CurrentPrimary)
+#FOR(%RelationKeyField),WHERE(%RelationKeyFieldLink AND %RelationKeyField)
+  #FIX(%QueueField,%RelationKeyField)
+  #IF(NOT %QueueField)
+    #FIX(%PreviouslyJoinedField,%RelationKeyField)
+    #IF(NOT(%PreviouslyJoinedField))
+      #ADD(%PreviouslyJoinedField,%RelationKeyField)
+%[20]Null PROJECT(%RelationKeyField)
+    #ENDIF
+  #ENDIF
+#ENDFOR
+#!---------------------------------------------------------------------
+#GROUP(%ProcessSaveLimits),AUTO
+#EMBED(%WindowEventOpenWindowBefore,'Window Event: Open Window, before setting up for reading')
+#EMBED(%BeforeKeySet,'Before SET() issued')
+  #IF(%PrimaryKey)
+SET(%PrimaryKey)
+  #ELSE
+SET(%Primary)
+  #ENDIF
+#INSERT(%StandardWriteViewFilter,%ProcessFilter)
+IF ERRORCODE()
+  StandardWarning(Warn:ViewOpenError)
+END
+OPEN(%ListView)
+IF ERRORCODE()
+  StandardWarning(Warn:ViewOpenError)
+END
+#EMBED(%BeforeInitialGet,'Before first record retrieval')
+LOOP
+  DO GetNextRecord
+  DO ValidateRecord
+  CASE RecordStatus
+    OF Record:Ok
+      BREAK
+    OF Record:OutOfRange
+      LocalResponse = RequestCancelled
+      BREAK
+  END
+END
+IF LocalResponse = RequestCancelled
+  POST(Event:CloseWindow)
+  CYCLE
+END
+#EMBED(%AfterInitialGet,'After first record retrieval')
+#EMBED(%WindowEventOpenWindowAfter,'Window Event: Open Window, after setting up for read')
+#!-------------------------------------------------------------------------
+#GROUP(%ProcessEventTimer)
+#INSERT(%StandardFormula,'Before Lookups')
+#INSERT(%StandardFormula,'After Lookups')
+#EMBED(%ProcessActivity,'Activity for each record')
+#CASE(%ProcessAction)
+#OF('PUT record')
+  #IF(%RIProcessAction)
+IF RIUpdate:%Primary()
+  #ELSE
+PUT(%ListView)
+IF ERRORCODE()
+  #ENDIF
+  IF StandardWarning(Warn:ProcessActionError,'Put','%ListView')
+    LocalResponse = RequestCompleted
+    BREAK
+  END
+END
+#OF('DELETE record')
+  #IF(%RIProcessAction)
+IF RIDelete:%Primary()
+  #ELSE
+DELETE(%ListView)
+IF ERRORCODE()
+  #ENDIF
+  IF StandardWarning(Warn:ProcessActionError,'Delete','%ListView')
+    LocalResponse = RequestCompleted
+    BREAK
+  END
+END
+#ENDCASE
+#EMBED(%ProcessError,'Error checking after record Action')
+#!--------------------------------------------------------------------------
+#GROUP(%ProcessValidateRecord)
+!-----------------------------------------------------------------------------
+ValidateRecord       ROUTINE
+#?!|
+#?!| This routine is used to provide for complex record filtering and range limiting. This
+#?!| routine is only generated if you've included your own code in the EMBED points provided in
+#?!| this routine.
+#?!|
+  RecordStatus = Record:OutOfRange
+  IF LocalResponse = RequestCancelled THEN EXIT.
+  #SUSPEND
+  #?RejectRecord = False
+  #INSERT(%StandardFormula,'Before Range Check')
+  #?IF RejectRecord THEN EXIT.
+  #RESUME
+  #EMBED(%RecordOutOfRange,'Validate Record: Range Checking')
+  #SUSPEND
+  #?RecordStatus = Record:Filtered
+    #SUSPEND
+  #?RejectRecord = False
+  #INSERT(%StandardFormula,'Before Filter Check')
+  #?IF RejectRecord THEN EXIT.
+    #RESUME
+    #EMBED(%RecordFilter,'Validate Record: Filter Checking')
+  #RESUME
+  RecordStatus = Record:OK
+  EXIT
+#!---------------------------------------------------
+#GROUP(%ProcessGetRecords)
+GetNextRecord ROUTINE
+!|
+!| This routine is used to retrieve the next record from the VIEW.
+!|
+!| After the record has been retrieved, the PROGRESS control on the
+!| Progress window is updated.
+!|
+  #EMBED(%TopOfGetNextRecord,'Top of GetNextRecord ROUTINE')
+  NEXT(%ListView)
+  #EMBED(%GetNextRecordAfterNext,'GetNextRecord ROUTINE, after NEXT')
+  IF ERRORCODE()
+    IF ERRORCODE() <> BadRecErr
+      StandardWarning(Warn:RecordFetchError,'%File')
+    END
+    LocalResponse = RequestCancelled
+    #EMBED(%GetNextRecordNextFails,'GetNextRecord ROUTINE, NEXT failed')
+    EXIT
+  ELSE
+    LocalResponse = RequestCompleted
+    #EMBED(%GetNextRecordNextSucceeds,'GetNextRecord ROUTINE, NEXT succeeds')
+  END
+  #IF(%PrimaryKey)
+  RecordsProcessed += 1
+  RecordsThisCycle += 1
+  #ELSE
+  RecordsProcessed += BYTES(%Primary)
+  RecordsThisCycle += BYTES(%Primary)
+  #ENDIF
+  IF PercentProgress < 100
+    PercentProgress = (RecordsProcessed / RecordsToProcess)*100
+    IF PercentProgress > 100
+      PercentProgress = 100
+    END
+    IF PercentProgress <> Progress:Thermometer THEN
+      Progress:Thermometer = PercentProgress
+      ?Progress:PctText{Prop:Text} = FORMAT(PercentProgress,@N3) & '% Completed'
+      DISPLAY()
+    END
+  END
+#!-------------------------------------------------------------------------
+#GROUP(%StandardProgressWindow)
+Progress:Thermometer BYTE
+ProgressWindow WINDOW('Progress...'),AT(,,142,59),CENTER,TIMER(1),GRAY,DOUBLE
+       PROGRESS,USE(Progress:Thermometer),AT(15,15,111,12),RANGE(0,100)
+       STRING(''),AT(0,3,141,10),USE(?Progress:UserString),CENTER
+       STRING(''),AT(0,30,141,10),USE(?Progress:PctText),CENTER
+       BUTTON('Cancel'),AT(45,42,50,15),USE(?Progress:Cancel)
+     END
+#!-------------------------------------------------------------------------
+#!-------------------------------------------------------------------------
+#GROUP(%StandardFormula,%RequestedClass)
+  #FOR(%Formula),WHERE(%FormulaClass = %RequestedClass)
+#INSERT(%ExpandFormula,1)
+  #ENDFOR
+#!-------------------------------------------------------------------------
+#GROUP(%ExpandFormula,%CurrentElement)
+  #DECLARE(%LastElement)
+  #SET(%LastElement,INSTANCE(%FormulaExpression))
+  #SELECT(%FormulaExpression,%CurrentElement)
+  #CASE(%FormulaExpressionType)
+  #OF('=')
+    #IF(%FormulaExpression)
+%Formula = %FormulaExpression
+    #ELSE
+CLEAR(%Formula)
+    #ENDIF
+  #OF('IF')
+IF (%FormulaExpression)
+  #INSERT(%ExpandFormula,%FormulaExpressionTrue)
+ELSE
+  #INSERT(%ExpandFormula,%FormulaExpressionFalse)
+END
+  #OF('CASE')
+CASE (%FormulaExpression)
+#INSERT(%ExpandFormulaCase,%FormulaExpressionCase)
+END
+  #ENDCASE
+#SELECT(%FormulaExpression,%LastElement)
+#!-------------------------------------------------------------------------
+#GROUP(%ExpandFormulaCase,%CurrentElement)
+  #SELECT(%FormulaExpression,%CurrentElement)
+  #LOOP WHILE(%CurrentElement)
+    #IF(%CurrentElement=0)
+      #BREAK
+    #ENDIF
+    #SET(%CurrentElement,%FormulaExpressionCase)
+    #IF(%FormulaExpression)
+OF %FormulaExpression
+    #ELSE
+ELSE
+    #ENDIF
+  #INSERT(%ExpandFormula,%FormulaExpressionOf)
+#SELECT(%FormulaExpression,%FormulaExpressionCase)
+  #ENDLOOP
+#!-------------------------------------------------------------------------
+#!--------------------------------------------------------------------------
+#GROUP(%FileControlOpen)
+#MESSAGE('File Control Open Code',3)
+#EMBED(%BeforeFileOpen,'Beginning of Procedure, Before Opening Files')
+#FOR(%ProcFilesUsed)
+#INSERT(%FileControlOpenFile,%ProcFilesUsed)
+#INSERT(%FileControlBindRecord,%ProcFilesUsed)
+#ENDFOR
+FilesOpened = True
+#EMBED(%AfterFileOpen,'Beginning of Procedure, After Opening Files')
+#!--------------------------------------------------------------------------
+#GROUP(%FileControlOpenFile,%CurrentFile)
+#DECLARE(%CheckOpenParameters)
+  #FIX(%File,%CurrentFile)
+  #CASE(%OverrideOpenMode)
+  #OF('Share')
+    #SET(%CheckOpenParameters,',42h')
+  #OF('Open')
+    #SET(%CheckOpenParameters,',22h')
+  #OF('Other')
+    #CASE(%OverrideOtherAccess)
+    #OF('Deny None')
+      #SET(%CheckOpenParameters,'+DenyNone')
+    #OF('Deny Read')
+      #SET(%CheckOpenParameters,'+DenyRead')
+    #OF('Deny Write')
+      #SET(%CheckOpenParameters,'+DenyWrite')
+    #OF('Deny All')
+      #SET(%CheckOpenParameters,'+DenyAll')
+    #OF('Any Access')
+      #SET(%CheckOpenParameters,'+AnyAccess')
+    #ENDCASE
+    #CASE(%OverrideUserAccess)
+    #OF('Read/Write')
+      #SET(%CheckOpenParameters,',ReadWrite' & %CheckOpenParameters)
+    #OF('Read Only')
+      #SET(%CheckOpenParameters,',ReadOnly' & %CheckOpenParameters)
+    #OF('Write Only')
+      #SET(%CheckOpenParameters,',WriteOnly' & %CheckOpenParameters)
+    #ENDCASE
+  #ENDCASE
+  #CASE(%OverrideCreate)
+  #OF('Use File Setting')
+    #IF(%FileCreate)
+      #SET(%CheckOpenParameters,',1' & %CheckOpenParameters)
+    #ELSE
+      #SET(%CheckOpenParameters,',0' & %CheckOpenParameters)
+    #ENDIF
+  #OF('Create File')
+    #SET(%CheckOpenParameters,',1' & %CheckOpenParameters)
+  #OF('Do Not Create File')
+    #SET(%CheckOpenParameters,',0' & %CheckOpenParameters)
+  #ELSE
+    #CASE(%DefaultCreate)
+    #OF('Use File Setting')
+      #IF(%FileCreate)
+        #SET(%CheckOpenParameters,',1' & %CheckOpenParameters)
+      #ELSE
+        #SET(%CheckOpenParameters,',0' & %CheckOpenParameters)
+      #ENDIF
+    #OF('Create All')
+      #SET(%CheckOpenParameters,',1' & %CheckOpenParameters)
+    #OF('Create None')
+      #SET(%CheckOpenParameters,',0' & %CheckOpenParameters)
+    #ENDCASE
+  #ENDCASE
+  #SET(%CheckOpenParameters,%File & %CheckOpenParameters)
+  #CASE(%OverrideCloseFile)
+  #OF('Close the File')
+IF %File::Used = 0
+  CheckOpen(%CheckOpenParameters)
+END
+%File::Used += 1
+  #OF('Keep the File Open')
+CheckOpen(%CheckOpenParameters)
+  #ELSE
+    #IF(%DefaultCloseFile ='Close the File')
+IF %File::Used = 0
+  CheckOpen(%CheckOpenParameters)
+END
+%File::Used += 1
+    #ELSE
+CheckOpen(%CheckOpenParameters)
+    #ENDIF
+  #ENDCASE
+#!--------------------------------------------------------------------------
+#GROUP(%FileControlBindRecord,%CurrentFile)
+#FIX(%File,%CurrentFile)
+BIND(%FilePrefix:RECORD)
+#FOR(%Field),WHERE(%FieldType = 'MEMO')
+BIND('%Field',%Field)
+#ENDFOR
+#FOR(%Field),WHERE(%FieldName)
+BIND('%Field',%Field)
+#ENDFOR
+#EMBED(%AfterBindingFileRecord,'Internal use, 2.003 only'),HIDE
+#!--------------------------------------------------------------------------
+#GROUP(%FileControlClose)
+#MESSAGE('File Control Close Code',3)
+IF FilesOpened
+  #EMBED(%BeforeFileClose,'End of Procedure, Before Closing Files')
+  #FOR(%ProcFilesUsed)
+  #INSERT(%FileControlCloseFile,%ProcFilesUsed)
+  #ENDFOR
+  #EMBED(%AfterFileClose,'End of Procedure, After Closing Files')
+END
+#!--------------------------------------------------------------------------
+#GROUP(%FileControlCloseFile,%CurrentFile)
+#FIX(%File,%CurrentFile)
+#CASE(%OverrideCloseFile)
+#OF('Close the File')
+%File::Used -= 1
+IF %File::Used = 0 THEN CLOSE(%File).
+#OF('Keep the File Open')
+IF %File::Used > 0
+  %File::Used -= 1
+END
+#ELSE
+  #IF(%DefaultCloseFile ='Close the File')
+%File::Used -= 1
+IF %File::Used = 0 THEN CLOSE(%File).
+  #ENDIF
+#ENDCASE
+#!--------------------------------------------------------------------------
+#!-------------------------------------------------------------------------
+#GROUP(%StandardWriteViewFilter,%ConstructedFilter)
+#IF(%ConstructedFilter)
+%ListView{Prop:Filter} = |
+  #SET(%ValueConstruct,%ConstructedFilter)
+  #SET(%HoldConstruct,'')
+  #LOOP
+    #IF(LEN(%ValueConstruct) > 70)
+      #SET(%HoldConstruct,SUB(%ValueConstruct,71,LEN(%ValueConstruct)-70))
+      #SET(%ValueConstruct,SUB(%ValueConstruct,1,70))
+    #ENDIF
+    #IF(%HoldConstruct)
+'%'ValueConstruct' & |
+      #SET(%ValueConstruct,%HoldConstruct)
+      #SET(%HoldConstruct,'')
+    #ELSE
+'%'ValueConstruct'
+      #BREAK
+    #ENDIF
+  #ENDLOOP
+#ELSE
+%ListView{Prop:Filter} = ''
+#ENDIF
+#!--------------------------------------------------------------------------
+#GROUP(%AddRelatedFiles,*%OpenList,%FileJustOpened),PRESERVE
+#FIX(%File,%FileJustOpened)
+#FOR (%Relation),WHERE(%RelationConstraintDelete OR %RelationConstraintUpdate)
+  #IF(~INLIST(%Relation,%OpenList))
+    #ADD(%OpenList,%Relation)
+    #INSERT(%AddRelatedFiles,%OpenList,%Relation)
+  #ENDIF
+#ENDFOR
+#!-------------------------------------------------------------------------

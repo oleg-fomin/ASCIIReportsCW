@@ -1,0 +1,16 @@
+--------------------------------------------------------------------------------
+ CustNumber             ^CustNo^
+ Company                ^Company           ^
+ FirstName              ^FirstName         ^
+ MI                     ^MI^
+ LastName               ^LastName               ^
+ Address1               ^Address1                         ^
+ Address2               ^Address2                         ^
+ City                   ^City                   ^
+ State                  ^ST^
+ STA:Name               ^StateName              ^
+ ZipCode                ^ZipCode ^
+ PhoneNumber            ^Phone   ^
+ Extension              ^Ext^
+ PhoneType              ^PhType^
+--------------------------------------------------------------------------------
